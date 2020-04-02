@@ -36,8 +36,8 @@ usage: bodman run [--env ENV] [--hostname HOSTNAME] [--tty] [--user USER]
 
 ### Goal
 
-- Only support minimum feature, removing a lot of complexity.
-- Make it using like a `docker` in most case.
+- Only support minimum feature, which removes a lot of complexity.
+- Make it using like `docker` in most case.
 
 ### Non Goal
 
