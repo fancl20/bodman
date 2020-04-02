@@ -4,7 +4,7 @@ Boadman is a minimum feature set of docker and podman. The original intuition is
 
 Inspired by [bocker](https://github.com/p8952/bocker/blob/master/bocker), [podman](https://podman.io) and [rkt](https://github.com/rkt/rkt). Current implementation is a POC, further rewriting in other reasonable language (Go?) is planned.
 
-A lot of features are still missing. If you find your docker image broken in bodman, just file a issue.
+A lot of features (etc. cpu/memory limit, cap add/drom) are still missing. If you find your docker image broken in bodman, just file a issue.
 
 ## Dependencies
 
