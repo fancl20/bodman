@@ -89,6 +89,7 @@ with open("manifest.json") as f:
 with open("config.json") as f:
   runc_config = json.load(f)
 
+# https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities
 cap = ["CAP_" + c for c in ["SETPCAP", "MKNOD", "AUDIT_WRITE", "CHOWN", "NET_RAW", "DAC_OVERRIDE",
        "FOWNER", "FSETID", "KILL", "SETGID", "SETUID", "NET_BIND_SERVICE", "SYS_CHROOT", "SETFCAP"]]
 for k in runc_config["process"]["capabilities"].keys():
