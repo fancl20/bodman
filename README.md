@@ -29,10 +29,10 @@ usage: bodman run [--env ENV] [--hostname HOSTNAME] [--tty] [--user USER]
 
 ## Roadmap
 
-[ ] Rewrite in Go
-[ ] Fetch local image from docker/podman
-[ ] Maybe: CNI Plugin support
-[ ] Maybe: OverlayFS and fuse-overlay
+- Rewrite in Go
+- Fetch local image from docker/podman
+- Maybe: CNI Plugin support
+- Maybe: OverlayFS and fuse-overlay
 
 ### Goal
 
