@@ -123,11 +123,11 @@ bodman_run() {
   CONTAINERS_DIR=${BODMAN_RUN_DIR}/containers
   CONTAINER_UUID=$(python3 -c 'import uuid; print(uuid.uuid4())')
   mkdir -p ${CONTAINERS_DIR}
-  trap "[ -z ${CONTAINER_UUID} ] || rm -rf ${CONTAINERS_DIR}/${CONTAINER_UUID}" EXIT INT TERM
 
   __bodman_run_generate_runc_config "$@"
-  cd ${CONTAINERS_DIR}/${CONTAINER_UUID}
-  crun run ${CONTAINER_UUID}
+  exec 200>${CONTAINERS_DIR}/${CONTAINER_UUID}/running.lock
+  flock -n 200
+  exec crun run --bundle ${CONTAINERS_DIR}/${CONTAINER_UUID} ${CONTAINER_UUID}
 }
 
 _bodman_init && bodman_"$1" "${@:2}"
