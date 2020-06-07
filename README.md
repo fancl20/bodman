@@ -4,7 +4,7 @@ Boadman is a minimum feature set of docker and podman. The original intuition is
 
 Inspired by [bocker](https://github.com/p8952/bocker/blob/master/bocker), [podman](https://podman.io) and [rkt](https://github.com/rkt/rkt).
 
-A lot of features (etc. cpu/memory limit, cap add/drom) are still missing. If you find your docker image broken in bodman, just file a issue.
+A lot of features (etc. cpu/memory limit, cap add/drop) are still missing. If you find your docker image broken in bodman, just file a issue.
 
 ## Dependencies
 
@@ -48,6 +48,6 @@ OPTIONS:
 
 ### Non Goal
 
-- PID Namespace: It only works when we fork a new process. That means we need a "supervisor" for the forked process. To simplify the designe, just remove PID Namespace support because isolation is not the target.
+- PID Namespace: It only works when we fork a new process. That means we need a "supervisor" for the forked process. To simplify the design, just remove PID Namespace support because isolation is not the target.
 - Build Image: It's only a complementary to current container ecosystem. You should still build your image using `docker` or `podman`.
 - Daemon: Support running container as a daemon means we need a `containerd`. Like `rkt`, you can do it youself using systemd or just using `podman` or `docker`.
