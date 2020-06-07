@@ -62,6 +62,7 @@ func newRunCommand() *cli.Command {
 			if err := unix.Unshare(unix.CLONE_NEWIPC | unix.CLONE_NEWNS | unix.CLONE_NEWUTS); err != nil {
 				return fmt.Errorf("Unshare namespaces failed: %w", err)
 			}
+
 			rootfs := filepath.Join(containerDir, "rootfs")
 			mounts, err := parseMounts(ctx)
 			if err != nil {
@@ -70,14 +71,17 @@ func newRunCommand() *cli.Command {
 			if err := prepareRootfs(rootfs, mounts); err != nil {
 				return fmt.Errorf("move root failed: %w", err)
 			}
+
 			cwd := stringDefault(ctx.String("workdir"), cfg.WorkingDir, "/")
 			if err := unix.Chdir(cwd); err != nil {
 				return fmt.Errorf("Chdir failed: %w", err)
 			}
+
 			hostname := stringDefault(ctx.String("hostname"), strings.Split(containerID, "-")[0])
 			if err := unix.Sethostname([]byte(hostname)); err != nil {
 				return fmt.Errorf("Sethostname failed: %w", err)
 			}
+
 			rawUser := stringDefault(ctx.String("user"), cfg.User)
 			if rawUser != "" {
 				uid, err := parseUser(rawUser)

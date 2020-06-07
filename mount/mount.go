@@ -3,7 +3,7 @@ package mount
 import (
 	"errors"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/sys/unix"
@@ -27,7 +27,7 @@ type Mount struct {
 	Flags uintptr `json:"flags"`
 
 	// Propagation Flags
-	PropagationFlags []int `json:"propagation_flags"`
+	PropagationFlags []uintptr `json:"propagation_flags"`
 
 	// Mount data applied to the mount.
 	Data string `json:"data"`
@@ -110,7 +110,7 @@ func parseMountOptions(options []string) (uintptr, []uintptr, string) {
 }
 
 func (m *Mount) Apply(rootfs string) error {
-	dest := path.Join(rootfs, m.Destination)
+	dest := filepath.Join(rootfs, m.Destination)
 	if _, err := os.Lstat(dest); err != nil {
 		if !os.IsNotExist(err) {
 			return err
@@ -119,7 +119,25 @@ func (m *Mount) Apply(rootfs string) error {
 			return err
 		}
 	}
-	return unix.Mount(m.Source, dest, m.Device, m.Flags, m.Data)
+
+	if err := unix.Mount(m.Source, dest, m.Device, m.Flags, m.Data); err != nil {
+		return err
+	}
+	for _, pflag := range m.PropagationFlags {
+		if err := unix.Mount("", dest, "", pflag, ""); err != nil {
+			return err
+		}
+	}
+
+	// bind mount won't change mount options, we need remount to make mount options effective.
+	// first check that we have non-default options required before attempting a remount
+	if m.Flags&^(unix.MS_REC|unix.MS_REMOUNT|unix.MS_BIND) != 0 {
+		// only remount if unique mount options are set
+		if err := unix.Mount(m.Source, dest, m.Device, m.Flags|unix.MS_REMOUNT, ""); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func ParseVolumn(s string) (*Mount, error) {
@@ -127,14 +145,16 @@ func ParseVolumn(s string) (*Mount, error) {
 	if len(opts) < 2 {
 		return nil, ErrInvalidVolumn
 	}
-	if len(opts) == 2 {
-		opts = append(opts, "bind,rw,exec")
+	mountOpts := []string{"bind", "rw", "exec"}
+	if len(opts) == 3 {
+		mountOpts = append(mountOpts, strings.Split(opts[2], ",")...)
 	}
-	flags, _, data := parseMountOptions(strings.Split(opts[2], ","))
+	flags, pgflags, data := parseMountOptions(mountOpts)
 	return &Mount{
-		Source:      opts[0],
-		Destination: opts[1],
-		Flags:       flags,
-		Data:        data,
+		Source:           opts[0],
+		Destination:      opts[1],
+		Flags:            flags,
+		PropagationFlags: pgflags,
+		Data:             data,
 	}, nil
 }
