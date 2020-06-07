@@ -49,10 +49,15 @@ func newRunCommand() *cli.Command {
 		Action: func(ctx *cli.Context) error {
 			args := ctx.Args()
 			containerID := uuid.New().String()
-			containerDir, err := checkoutImage(ctx.String("base-directory"), args.First(), containerID)
+			containerDir, lock, err := checkoutImage(ctx.String("base-directory"), args.First(), containerID)
 			if err != nil {
 				return err
 			}
+			// The lock won't be closed if we successfully call exec. This is
+			// an intended behaviour so the container directory will be locked
+			// until process exit.
+			defer lock.Close()
+
 			cfg, err := loadImageConfig(containerDir)
 			if err != nil {
 				return err
@@ -104,7 +109,7 @@ func newRunCommand() *cli.Command {
 			if err := unix.Exec(executable, execArgs, env); err != nil {
 				return fmt.Errorf("Exec command failed: %w", err)
 			}
-			return nil
+			panic("unreachable")
 		},
 	}
 }

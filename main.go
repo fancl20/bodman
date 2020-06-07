@@ -43,6 +43,7 @@ func main() {
 	app.Commands = []*cli.Command{
 		newPullCommand(),
 		newRunCommand(),
+		newGCCommand(),
 	}
 	app.RunAndExitOnError()
 }

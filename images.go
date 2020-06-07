@@ -1,10 +1,14 @@
 package main
 
 import (
+	"errors"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	ostree "github.com/ostreedev/ostree-go/pkg/otbuiltin"
+	"golang.org/x/sys/unix"
 )
 
 func getImagesPath(base string) string {
@@ -51,11 +55,39 @@ func commitImage(base, imageName, buildDir string) error {
 	return nil
 }
 
-func checkoutImage(base, imageName, containerID string) (string, error) {
+func checkoutImage(base, imageName, containerID string) (string, *os.File, error) {
+	baseLock, err := tryLockFile(base, true)
+	if err != nil {
+		return "", nil, fmt.Errorf("Acquire base lock failed: %w", err)
+	}
+	defer baseLock.Close()
+
 	opts := ostree.NewCheckoutOptions()
 	dst := filepath.Join(getContainersPath(base), containerID)
 	if err := ostree.Checkout(getImagesPath(base), dst, getBranchName(imageName), opts); err != nil {
-		return "", err
+		return "", nil, fmt.Errorf("Checkout image failed: %w", err)
 	}
-	return dst, nil
+	containerLock, err := tryLockFile(dst, true)
+	if err != nil {
+		return "", nil, fmt.Errorf("Acquire container lock failed: %w", err)
+	}
+	return dst, containerLock, nil
+}
+
+func tryLockFile(path string, blocking bool) (*os.File, error) {
+	fd, err := unix.Open(path, unix.O_DIRECTORY|unix.O_RDONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+	blockingFlag := 0
+	if !blocking {
+		blockingFlag = unix.LOCK_NB
+	}
+	if err := unix.Flock(fd, unix.LOCK_EX|blockingFlag); err != nil {
+		if errors.Is(err, unix.EWOULDBLOCK) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return os.NewFile(uintptr(fd), path), nil
 }
