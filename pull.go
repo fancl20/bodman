@@ -21,8 +21,13 @@ import (
 
 func newPullCommand() *cli.Command {
 	return &cli.Command{
-		Name:  "pull",
-		Flags: []cli.Flag{},
+		Name:     "pull",
+		HideHelp: true,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name: "help",
+			},
+		},
 		Action: func(ctx *cli.Context) error {
 			args := ctx.Args()
 			if args.Len() != 1 {
@@ -32,7 +37,7 @@ func newPullCommand() *cli.Command {
 			if err != nil {
 				return err
 			}
-			// defer os.RemoveAll(tempDir)
+			defer os.RemoveAll(tempDir)
 
 			// Copy image from remote source
 			srcName := fmt.Sprintf("docker://%s", args.Get(0))
@@ -72,7 +77,9 @@ func newPullCommand() *cli.Command {
 			}
 
 			// Commit image
-			ostree.test
+			if err := commitImage(ctx.String("base-directory"), args.First(), buildDir); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
@@ -81,11 +88,11 @@ func newPullCommand() *cli.Command {
 func copyImage(ctx context.Context, srcName, dstName string, stdout io.Writer) error {
 	policy, err := signature.DefaultPolicy(nil)
 	if err != nil {
-		return fmt.Errorf("Error creating trust policy: %v", err)
+		return fmt.Errorf("Error creating trust policy: %w", err)
 	}
 	policyContext, err := signature.NewPolicyContext(policy)
 	if err != nil {
-		return fmt.Errorf("Error loading trust policy: %v", err)
+		return fmt.Errorf("Error loading trust policy: %w", err)
 	}
 	defer policyContext.Destroy()
 
