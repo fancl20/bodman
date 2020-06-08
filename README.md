@@ -43,8 +43,8 @@ OPTIONS:
 
 ### Goal
 
-- Only support minimum feature, which removes a lot of complexity.
-- Make it using like `docker` in most case.
+- Only support minimum feature, which removes a lot of complexities.
+- Make it using like `docker` in most cases.
 
 ### Non Goal
 
