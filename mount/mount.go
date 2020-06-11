@@ -111,13 +111,12 @@ func parseMountOptions(options []string) (uintptr, []uintptr, string) {
 
 func (m *Mount) Apply(rootfs string) error {
 	dest := filepath.Join(rootfs, m.Destination)
-	if _, err := os.Lstat(dest); err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-		if err := os.MkdirAll(dest, 0755); err != nil {
-			return err
-		}
+	isDir, err := createIfNotExists(m.Source, true, true)
+	if err != nil {
+		return err
+	}
+	if _, err := createIfNotExists(dest, isDir, false); err != nil {
+		return err
 	}
 
 	if err := unix.Mount(m.Source, dest, m.Device, m.Flags, m.Data); err != nil {
@@ -157,4 +156,30 @@ func ParseVolumn(s string) (*Mount, error) {
 		PropagationFlags: pgflags,
 		Data:             data,
 	}, nil
+}
+
+func createIfNotExists(path string, isDir bool, followLink bool) (bool, error) {
+	statFunc := os.Lstat
+	if followLink {
+		statFunc = os.Stat
+	}
+	s, err := statFunc(path)
+	if err == nil {
+		return s.IsDir(), nil
+	}
+	if !os.IsNotExist(err) {
+		return false, err
+	}
+	if isDir {
+		return true, os.MkdirAll(path, 0755)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return false, err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE, 0755)
+	if err != nil {
+		return false, err
+	}
+	f.Close()
+	return false, nil
 }
