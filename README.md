@@ -30,6 +30,7 @@ OPTIONS:
    --help                      (default: false)
    --env value, -e value
    --hostname value, -h value
+   --systemd-activation        (default: false)
    --user value, -u value
    --volume value, -v value
    --workdir value, -w value
