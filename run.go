@@ -33,6 +33,9 @@ func newRunCommand() *cli.Command {
 				Name:    "hostname",
 				Aliases: []string{"h"},
 			},
+			&cli.BoolFlag{
+				Name: "systemd-activation",
+			},
 			&cli.StringFlag{
 				Name:    "user",
 				Aliases: []string{"u"},
@@ -105,6 +108,9 @@ func newRunCommand() *cli.Command {
 			executable, err := lookPath(execArgs[0], env)
 			if err != nil {
 				return err
+			}
+			if ctx.Bool("systemd-activation") {
+				env = append(env, bypassSystemdActivation()...)
 			}
 			if err := unix.Exec(executable, execArgs, env); err != nil {
 				return fmt.Errorf("Exec command failed: %w", err)
@@ -247,4 +253,14 @@ func lookPath(file string, envs []string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("excutable not found")
+}
+
+func bypassSystemdActivation() []string {
+	var envs []string
+	for _, env := range []string{"LISTEN_PID", "LISTEN_FDS", "LISTEN_FDNAMES"} {
+		if val, ok := os.LookupEnv(env); ok {
+			envs = append(envs, fmt.Sprintf("%s=%s", env, val))
+		}
+	}
+	return envs
 }
