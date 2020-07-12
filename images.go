@@ -1,12 +1,15 @@
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/containers/image/v5/transports/alltransports"
+	"github.com/containers/image/v5/types"
 	ostree "github.com/ostreedev/ostree-go/pkg/otbuiltin"
 	"golang.org/x/sys/unix"
 )
@@ -30,12 +33,30 @@ func openRepo(base string) (*ostree.Repo, error) {
 }
 
 func getBranchName(imageName string) string {
-	if strings.Index(imageName, ":") != -1 {
-		imageName = strings.ReplaceAll(imageName, ":", "/")
-	} else {
-		imageName += "/latest"
+	if strings.Index(imageName, ":") == -1 {
+		imageName += ":latest"
 	}
-	return "ociimage/" + imageName
+	return base64.RawURLEncoding.EncodeToString([]byte(imageName))
+}
+
+func decodeImageNameFromBranch(branch string) (string, error) {
+	image, err := base64.RawURLEncoding.DecodeString(branch)
+	if err != nil {
+		return "", err
+	}
+	return string(image), nil
+}
+
+func parseImageNameToString(rawImage string) (string, error) {
+	image, err := parseImageName(rawImage)
+	if err != nil {
+		return "", err
+	}
+	return image.DockerReference().String(), nil
+}
+
+func parseImageName(rawImage string) (types.ImageReference, error) {
+	return alltransports.ParseImageName(fmt.Sprintf("docker://%s", rawImage))
 }
 
 func commitImage(base, imageName, buildDir string) error {

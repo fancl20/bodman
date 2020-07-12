@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -24,6 +26,16 @@ func newRunCommand() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name: "help",
+			},
+			&cli.StringSliceFlag{
+				Name: "dns",
+			},
+			&cli.StringSliceFlag{
+				Name:    "dns-option",
+				Aliases: []string{"dns-opt"},
+			},
+			&cli.StringSliceFlag{
+				Name: "dns-search",
 			},
 			&cli.StringSliceFlag{
 				Name:    "env",
@@ -52,7 +64,11 @@ func newRunCommand() *cli.Command {
 		Action: func(ctx *cli.Context) error {
 			args := ctx.Args()
 			containerID := uuid.New().String()
-			containerDir, lock, err := checkoutImage(ctx.String("base-directory"), args.First(), containerID)
+			imageName, err := parseImageNameToString(args.First())
+			if err != nil {
+				return err
+			}
+			containerDir, lock, err := checkoutImage(ctx.String("base-directory"), imageName, containerID)
 			if err != nil {
 				return err
 			}
@@ -83,6 +99,10 @@ func newRunCommand() *cli.Command {
 			cwd := stringDefault(ctx.String("workdir"), cfg.WorkingDir, "/")
 			if err := unix.Chdir(cwd); err != nil {
 				return fmt.Errorf("Chdir failed: %w", err)
+			}
+
+			if err := buildDNSResolve("/etc/resolv.conf", append(ctx.StringSlice("dns"), "8.8.8.8"), ctx.StringSlice("dns-search"), ctx.StringSlice("dns-option")); err != nil {
+				return fmt.Errorf("Set dns failed: %w", err)
 			}
 
 			hostname := stringDefault(ctx.String("hostname"), strings.Split(containerID, "-")[0])
@@ -263,4 +283,28 @@ func bypassSystemdActivation() []string {
 		}
 	}
 	return envs
+}
+
+func buildDNSResolve(path string, dns, dnsSearch, dnsOptions []string) error {
+	content := bytes.NewBuffer(nil)
+	if len(dnsSearch) > 0 {
+		if searchString := strings.Join(dnsSearch, " "); strings.Trim(searchString, " ") != "." {
+			if _, err := content.WriteString("search " + searchString + "\n"); err != nil {
+				return err
+			}
+		}
+	}
+	for _, dns := range dns {
+		if _, err := content.WriteString("nameserver " + dns + "\n"); err != nil {
+			return err
+		}
+	}
+	if len(dnsOptions) > 0 {
+		if optsString := strings.Join(dnsOptions, " "); strings.Trim(optsString, " ") != "" {
+			if _, err := content.WriteString("options " + optsString + "\n"); err != nil {
+				return err
+			}
+		}
+	}
+	return ioutil.WriteFile(path, content.Bytes(), 0644)
 }

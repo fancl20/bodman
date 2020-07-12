@@ -41,9 +41,10 @@ func main() {
 		return nil
 	}
 	app.Commands = []*cli.Command{
+		newGCCommand(),
+		newImageCommand(),
 		newPullCommand(),
 		newRunCommand(),
-		newGCCommand(),
 	}
 	app.RunAndExitOnError()
 }

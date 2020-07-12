@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	ostree "github.com/ostreedev/ostree-go/pkg/otbuiltin"
 	"github.com/urfave/cli/v2"
 )
 
@@ -27,6 +28,9 @@ func newGCCommand() *cli.Command {
 				if err := os.RemoveAll(path); err != nil {
 					return fmt.Errorf("Remove container dir failed: %s: %w", path, err)
 				}
+			}
+			if _, err := pruneImages(ctx); err != nil {
+				return err
 			}
 			return nil
 		},
@@ -60,4 +64,11 @@ func getClosedContainerList(ctx *cli.Context) ([]string, error) {
 		closed = append(closed, path)
 	}
 	return closed, nil
+}
+
+func pruneImages(ctx *cli.Context) (string, error) {
+	base := ctx.String("base-directory")
+	pruneOpt := ostree.NewPruneOptions()
+	pruneOpt.RefsOnly = true
+	return ostree.Prune(getImagesPath(base), pruneOpt)
 }

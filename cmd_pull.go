@@ -40,13 +40,12 @@ func newPullCommand() *cli.Command {
 			defer os.RemoveAll(tempDir)
 
 			// Copy image from remote source
-			srcName := fmt.Sprintf("docker://%s", args.Get(0))
-			dstName := fmt.Sprintf("oci:%s/image", tempDir)
+			// dstName := fmt.Sprintf("oci:%s/image", tempDir)
 			output := os.Stdout
 			if ctx.IsSet("quiet") {
 				output = nil
 			}
-			if err := copyImage(ctx.Context, srcName, dstName, output); err != nil {
+			if err := copyImage(ctx.Context, args.Get(0), tempDir, output); err != nil {
 				return err
 			}
 
@@ -77,7 +76,11 @@ func newPullCommand() *cli.Command {
 			}
 
 			// Commit image
-			if err := commitImage(ctx.String("base-directory"), args.First(), buildDir); err != nil {
+			imageName, err := parseImageNameToString(args.First())
+			if err != nil {
+				return err
+			}
+			if err := commitImage(ctx.String("base-directory"), imageName, buildDir); err != nil {
 				return err
 			}
 			return nil
@@ -96,10 +99,11 @@ func copyImage(ctx context.Context, srcName, dstName string, stdout io.Writer) e
 	}
 	defer policyContext.Destroy()
 
-	srcRef, err := alltransports.ParseImageName(srcName)
+	srcRef, err := parseImageName(srcName)
 	if err != nil {
 		return fmt.Errorf("Invalid source name %s: %w", srcName, err)
 	}
+	dstName = fmt.Sprintf("oci:%s/image", dstName)
 	destRef, err := alltransports.ParseImageName(dstName)
 	if err != nil {
 		return fmt.Errorf("Invalid destination name %s: %w", dstName, err)
