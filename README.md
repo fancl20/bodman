@@ -27,10 +27,13 @@ USAGE:
    bodman run [command options] [arguments...]
 
 OPTIONS:
-   --help                      (default: false)
+   --help                               (default: false)
+   --dns value
+   --dns-option value, --dns-opt value
+   --dns-search value
    --env value, -e value
    --hostname value, -h value
-   --systemd-activation        (default: false)
+   --systemd-activation                 (default: false)
    --user value, -u value
    --volume value, -v value
    --workdir value, -w value
