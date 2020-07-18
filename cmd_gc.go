@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	ostree "github.com/ostreedev/ostree-go/pkg/otbuiltin"
+	ostree "github.com/fancl20/ostree-go/pkg/otbuiltin"
 	"github.com/urfave/cli/v2"
 )
 
@@ -68,7 +68,11 @@ func getClosedContainerList(ctx *cli.Context) ([]string, error) {
 
 func pruneImages(ctx *cli.Context) (string, error) {
 	base := ctx.String("base-directory")
+	repo, err := openRepo(base)
+	if err != nil {
+		return "", err
+	}
 	pruneOpt := ostree.NewPruneOptions()
 	pruneOpt.RefsOnly = true
-	return ostree.Prune(getImagesPath(base), pruneOpt)
+	return repo.Prune(pruneOpt)
 }

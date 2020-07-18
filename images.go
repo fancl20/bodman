@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/containers/image/v5/types"
-	ostree "github.com/ostreedev/ostree-go/pkg/otbuiltin"
+	ostree "github.com/fancl20/ostree-go/pkg/otbuiltin"
 	"golang.org/x/sys/unix"
 )
 
@@ -32,14 +31,11 @@ func openRepo(base string) (*ostree.Repo, error) {
 	return ostree.OpenRepo(repoPath)
 }
 
-func getBranchName(imageName string) string {
-	if strings.Index(imageName, ":") == -1 {
-		imageName += ":latest"
-	}
-	return base64.RawURLEncoding.EncodeToString([]byte(imageName))
+func encodeBranchFromImage(image string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(image))
 }
 
-func decodeImageNameFromBranch(branch string) (string, error) {
+func decodeImageFromBranch(branch string) (string, error) {
 	image, err := base64.RawURLEncoding.DecodeString(branch)
 	if err != nil {
 		return "", err
@@ -67,7 +63,7 @@ func commitImage(base, imageName, buildDir string) error {
 	if _, err := repo.PrepareTransaction(); err != nil {
 		return err
 	}
-	if _, err := repo.Commit(buildDir, getBranchName(imageName), ostree.NewCommitOptions()); err != nil {
+	if _, err := repo.Commit(buildDir, encodeBranchFromImage(imageName), ostree.NewCommitOptions()); err != nil {
 		return err
 	}
 	if _, err := repo.CommitTransaction(); err != nil {
@@ -85,7 +81,7 @@ func checkoutImage(base, imageName, containerID string) (string, *os.File, error
 
 	opts := ostree.NewCheckoutOptions()
 	dst := filepath.Join(getContainersPath(base), containerID)
-	if err := ostree.Checkout(getImagesPath(base), dst, getBranchName(imageName), opts); err != nil {
+	if err := ostree.Checkout(getImagesPath(base), dst, encodeBranchFromImage(imageName), opts); err != nil {
 		return "", nil, fmt.Errorf("Checkout image failed: %w", err)
 	}
 	containerLock, err := tryLockFile(dst, true)
@@ -93,6 +89,22 @@ func checkoutImage(base, imageName, containerID string) (string, *os.File, error
 		return "", nil, fmt.Errorf("Acquire container lock failed: %w", err)
 	}
 	return dst, containerLock, nil
+}
+
+func deleteImageRef(base, imageName string) error {
+	repo, err := openRepo(base)
+	if err != nil {
+		return err
+	}
+	if _, err := repo.PrepareTransaction(); err != nil {
+		return err
+	}
+	repo.TransactionSetRef("", encodeBranchFromImage(imageName), "")
+	if _, err := repo.CommitTransaction(); err != nil {
+		return err
+	}
+	return nil
+
 }
 
 func tryLockFile(path string, blocking bool) (*os.File, error) {
