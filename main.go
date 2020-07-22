@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"runtime"
 
 	"github.com/urfave/cli/v2"
@@ -26,19 +25,6 @@ func main() {
 			Name:  "base-directory",
 			Value: "/var/cache/bodman",
 		},
-		&cli.BoolFlag{
-			Name: "quiet",
-		},
-	}
-	app.Before = func(ctx *cli.Context) error {
-		base := ctx.String("base-directory")
-		if err := os.MkdirAll(getImagesPath(base), 0755); err != nil {
-			return err
-		}
-		if err := os.MkdirAll(getContainersPath(base), 0755); err != nil {
-			return err
-		}
-		return nil
 	}
 	app.Commands = []*cli.Command{
 		newGCCommand(),

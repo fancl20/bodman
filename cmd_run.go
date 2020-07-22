@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/fancl20/bodman/manager"
 	"github.com/fancl20/bodman/mount"
 	"github.com/google/uuid"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -64,11 +65,7 @@ func newRunCommand() *cli.Command {
 		Action: func(ctx *cli.Context) error {
 			args := ctx.Args()
 			containerID := uuid.New().String()
-			imageName, err := parseImageNameToString(args.First())
-			if err != nil {
-				return err
-			}
-			containerDir, lock, err := checkoutImage(ctx.String("base-directory"), imageName, containerID)
+			containerDir, lock, err := manager.GetManager(ctx).ImageCheckout(args.First(), containerID)
 			if err != nil {
 				return err
 			}
@@ -173,39 +170,39 @@ func stringSliceDefault(ss ...[]string) []string {
 
 func defaultMounts() []*mount.Mount {
 	return []*mount.Mount{
-		&mount.Mount{
+		{
 			Destination: "/proc",
 			Device:      "proc",
 			Source:      "proc",
 		},
-		&mount.Mount{
+		{
 			Destination: "/dev",
 			Device:      "tmpfs",
 			Source:      "tmpfs",
 			Flags:       unix.MS_NOSUID | unix.MS_STRICTATIME,
 			Data:        "mode=755,size=65536k",
 		},
-		&mount.Mount{
+		{
 			Destination: "/dev/pts",
 			Device:      "devpts",
 			Source:      "devpts",
 			Flags:       unix.MS_NOSUID | unix.MS_NOEXEC,
 			Data:        "newinstance,ptmxmode=0666,mode=0620,gid=5",
 		},
-		&mount.Mount{
+		{
 			Destination: "/dev/shm",
 			Device:      "tmpfs",
 			Source:      "shm",
 			Flags:       unix.MS_NOSUID | unix.MS_NOEXEC | unix.MS_NODEV,
 			Data:        "mode=1777,size=65536k",
 		},
-		&mount.Mount{
+		{
 			Destination: "/dev/mqueue",
 			Device:      "mqueue",
 			Source:      "mqueue",
 			Flags:       unix.MS_NOSUID | unix.MS_NOEXEC | unix.MS_NODEV,
 		},
-		&mount.Mount{
+		{
 			Destination: "/sys",
 			Device:      "sysfs",
 			Source:      "sysfs",

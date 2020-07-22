@@ -14,6 +14,7 @@ import (
 	"github.com/containers/image/v5/signature"
 	"github.com/containers/image/v5/transports/alltransports"
 	"github.com/containers/storage/pkg/archive"
+	"github.com/fancl20/bodman/manager"
 	digest "github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/urfave/cli/v2"
@@ -76,11 +77,7 @@ func newPullCommand() *cli.Command {
 			}
 
 			// Commit image
-			imageName, err := parseImageNameToString(args.First())
-			if err != nil {
-				return err
-			}
-			if err := commitImage(ctx.String("base-directory"), imageName, buildDir); err != nil {
+			if err := manager.GetManager(ctx).ImageCommit(args.First(), buildDir); err != nil {
 				return err
 			}
 			return nil
@@ -99,7 +96,7 @@ func copyImage(ctx context.Context, srcName, dstName string, stdout io.Writer) e
 	}
 	defer policyContext.Destroy()
 
-	srcRef, err := parseImageName(srcName)
+	srcRef, err := alltransports.ParseImageName(fmt.Sprintf("docker://%s", srcName))
 	if err != nil {
 		return fmt.Errorf("Invalid source name %s: %w", srcName, err)
 	}
