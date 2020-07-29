@@ -172,6 +172,9 @@ func (m *Manager) ImageDelete(image string) error {
 }
 
 func (m *Manager) ImageList() ([]string, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
 	refs, err := m.repo.ListRefs()
 	if err != nil {
 		return nil, err

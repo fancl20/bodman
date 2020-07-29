@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/fancl20/bodman/devices"
 	"github.com/fancl20/bodman/mount"
+	"github.com/urfave/cli/v2"
 	"golang.org/x/sys/unix"
 )
 
@@ -16,6 +18,9 @@ func prepareRootfs(rootfs string, mounts []*mount.Mount) error {
 		if err := m.Apply(rootfs); err != nil {
 			return fmt.Errorf("Apply %+v failed: %w", m, err)
 		}
+	}
+	if err := devices.CreateDevicesFromHost(rootfs); err != nil {
+		return fmt.Errorf("Create devices failed: %w", err)
 	}
 	if err := pivotRoot(rootfs); err != nil {
 		return fmt.Errorf("Pivot root failed: %w", err)
@@ -143,4 +148,59 @@ func rootfsParentMountPrivate(rootfs string) error {
 	}
 
 	return nil
+}
+
+func parseMounts(ctx *cli.Context) ([]*mount.Mount, error) {
+	ms := defaultMounts()
+	for _, v := range ctx.StringSlice("volume") {
+		m, err := mount.ParseVolumn(v)
+		if err != nil {
+			return nil, fmt.Errorf("Parse volumn %v failed: %w", v, err)
+		}
+		ms = append(ms, m)
+	}
+	return ms, nil
+}
+
+func defaultMounts() []*mount.Mount {
+	return []*mount.Mount{
+		{
+			Destination: "/proc",
+			Device:      "proc",
+			Source:      "proc",
+		},
+		{
+			Destination: "/dev",
+			Device:      "tmpfs",
+			Source:      "tmpfs",
+			Flags:       unix.MS_NOSUID | unix.MS_STRICTATIME,
+			Data:        "mode=755,size=65536k",
+		},
+		{
+			Destination: "/dev/pts",
+			Device:      "devpts",
+			Source:      "devpts",
+			Flags:       unix.MS_NOSUID | unix.MS_NOEXEC,
+			Data:        "newinstance,ptmxmode=0666,mode=0620,gid=5",
+		},
+		{
+			Destination: "/dev/shm",
+			Device:      "tmpfs",
+			Source:      "shm",
+			Flags:       unix.MS_NOSUID | unix.MS_NOEXEC | unix.MS_NODEV,
+			Data:        "mode=1777,size=65536k",
+		},
+		{
+			Destination: "/dev/mqueue",
+			Device:      "mqueue",
+			Source:      "mqueue",
+			Flags:       unix.MS_NOSUID | unix.MS_NOEXEC | unix.MS_NODEV,
+		},
+		{
+			Destination: "/sys",
+			Device:      "sysfs",
+			Source:      "sysfs",
+			Flags:       unix.MS_NOSUID | unix.MS_NOEXEC | unix.MS_NODEV | unix.MS_RDONLY,
+		},
+	}
 }
