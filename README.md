@@ -28,11 +28,12 @@ USAGE:
 
 OPTIONS:
    --help                               (default: false)
-   --dns value
+   --dns value                          (default: "8.8.8.8")
    --dns-option value, --dns-opt value
    --dns-search value
    --env value, -e value
    --hostname value, -h value
+   --network value, --net value         (default: "host")
    --systemd-activation                 (default: false)
    --user value, -u value
    --volume value, -v value
@@ -42,7 +43,6 @@ OPTIONS:
 ## Roadmap
 
 - Fetch local image from docker/podman
-- Maybe: CNI Plugin support
 - Maybe: OverlayFS and fuse-overlay
 
 ### Goal

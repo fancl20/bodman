@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/containers/image/v5/transports/alltransports"
+	"github.com/fancl20/bodman/network"
 	ostree "github.com/fancl20/ostree-go/pkg/otbuiltin"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sys/unix"
@@ -227,7 +228,13 @@ func (m *Manager) ContainerPrune() ([]string, error) {
 			continue
 		}
 		l.Close()
-
+		n, err := network.Load(filepath.Join(path, "network.json"))
+		if err != nil {
+			return stopped, fmt.Errorf("Load container network config failed: %s: %w", path, err)
+		}
+		if err := n.Remove(); err != nil {
+			return stopped, fmt.Errorf("Remove container network failed: %s: %w", path, err)
+		}
 		if err := os.RemoveAll(path); err != nil {
 			return stopped, fmt.Errorf("Remove container dir failed: %s: %w", path, err)
 		}

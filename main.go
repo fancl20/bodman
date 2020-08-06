@@ -25,6 +25,18 @@ func main() {
 			Name:  "base-directory",
 			Value: "/var/cache/bodman",
 		},
+		&cli.StringFlag{
+			Name:  "cni-config-dir",
+			Value: "/etc/cni/net.d/",
+		},
+		&cli.StringSliceFlag{
+			Name: "cni-plugin-dir",
+			Value: cli.NewStringSlice(
+				"/usr/libexec/cni",
+				"/usr/lib/cni",
+				"/usr/local/lib/cni",
+				"/opt/cni/bin"),
+		},
 	}
 	app.Commands = []*cli.Command{
 		newGCCommand(),

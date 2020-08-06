@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/fancl20/bodman/manager"
+	"github.com/fancl20/bodman/network"
 	"github.com/google/uuid"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/urfave/cli/v2"
@@ -28,7 +29,8 @@ func newRunCommand() *cli.Command {
 				Name: "help",
 			},
 			&cli.StringSliceFlag{
-				Name: "dns",
+				Name:  "dns",
+				Value: cli.NewStringSlice("8.8.8.8"),
 			},
 			&cli.StringSliceFlag{
 				Name:    "dns-option",
@@ -44,6 +46,11 @@ func newRunCommand() *cli.Command {
 			&cli.StringFlag{
 				Name:    "hostname",
 				Aliases: []string{"h"},
+			},
+			&cli.StringFlag{
+				Name:    "network",
+				Aliases: []string{"net"},
+				Value:   "host",
 			},
 			&cli.BoolFlag{
 				Name: "systemd-activation",
@@ -78,7 +85,15 @@ func newRunCommand() *cli.Command {
 				return err
 			}
 
-			// TODO(fancl20): Add unix.CLONE_NEWNET. We need to support CNI Plugin first to configure network.
+			networkConfig := network.NewNetwork(ctx, containerID)
+			networkConfigPath := filepath.Join(containerDir, "network.json")
+			if err := network.Dump(networkConfigPath, networkConfig); err != nil {
+				return fmt.Errorf("Dump network config failed: %w", err)
+			}
+			if err := networkConfig.Execute(); err != nil {
+				return fmt.Errorf("Execute network config failed: %w", err)
+			}
+
 			if err := unix.Unshare(unix.CLONE_NEWIPC | unix.CLONE_NEWNS | unix.CLONE_NEWUTS); err != nil {
 				return fmt.Errorf("Unshare namespaces failed: %w", err)
 			}
@@ -86,10 +101,10 @@ func newRunCommand() *cli.Command {
 			rootfs := filepath.Join(containerDir, "rootfs")
 			mounts, err := parseMounts(ctx)
 			if err != nil {
-				return fmt.Errorf("parse mounts: %w", err)
+				return fmt.Errorf("Parse mounts failed: %w", err)
 			}
 			if err := prepareRootfs(rootfs, mounts); err != nil {
-				return fmt.Errorf("move root failed: %w", err)
+				return fmt.Errorf("Move root failed: %w", err)
 			}
 
 			cwd := stringDefault(ctx.String("workdir"), cfg.WorkingDir, "/")
@@ -97,7 +112,7 @@ func newRunCommand() *cli.Command {
 				return fmt.Errorf("Chdir failed: %w", err)
 			}
 
-			if err := buildDNSResolve("/etc/resolv.conf", append(ctx.StringSlice("dns"), "8.8.8.8"), ctx.StringSlice("dns-search"), ctx.StringSlice("dns-option")); err != nil {
+			if err := buildDNSResolve("/etc/resolv.conf", ctx.StringSlice("dns"), ctx.StringSlice("dns-search"), ctx.StringSlice("dns-option")); err != nil {
 				return fmt.Errorf("Set dns failed: %w", err)
 			}
 
