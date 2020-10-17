@@ -40,6 +40,8 @@ OPTIONS:
    --workdir value, -w value
 ```
 
+**NOET: Port mapping is broken**
+
 ## Roadmap
 
 - Fetch local image from docker/podman
