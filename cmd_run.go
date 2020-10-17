@@ -52,6 +52,10 @@ func newRunCommand() *cli.Command {
 				Aliases: []string{"net"},
 				Value:   "host",
 			},
+			&cli.StringSliceFlag{
+				Name:    "publish",
+				Aliases: []string{"p"},
+			},
 			&cli.BoolFlag{
 				Name: "systemd-activation",
 			},
@@ -85,7 +89,12 @@ func newRunCommand() *cli.Command {
 				return err
 			}
 
-			networkConfig := network.NewNetwork(ctx, containerID)
+			hostname := stringDefault(ctx.String("hostname"), strings.Split(containerID, "-")[0])
+
+			networkConfig, err := network.NewNetwork(ctx, hostname, containerID)
+			if err != nil {
+				return fmt.Errorf("Create network config failed: %w", err)
+			}
 			networkConfigPath := filepath.Join(containerDir, "network.json")
 			if err := network.Dump(networkConfigPath, networkConfig); err != nil {
 				return fmt.Errorf("Dump network config failed: %w", err)
@@ -116,7 +125,6 @@ func newRunCommand() *cli.Command {
 				return fmt.Errorf("Set dns failed: %w", err)
 			}
 
-			hostname := stringDefault(ctx.String("hostname"), strings.Split(containerID, "-")[0])
 			if err := unix.Sethostname([]byte(hostname)); err != nil {
 				return fmt.Errorf("Sethostname failed: %w", err)
 			}
@@ -143,6 +151,7 @@ func newRunCommand() *cli.Command {
 			if ctx.Bool("systemd-activation") {
 				env = append(env, bypassSystemdActivation()...)
 			}
+
 			if err := unix.Exec(executable, execArgs, env); err != nil {
 				return fmt.Errorf("Exec command failed: %w", err)
 			}

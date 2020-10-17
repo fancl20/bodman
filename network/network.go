@@ -24,24 +24,37 @@ type Network struct {
 	NetworkNamespace string
 }
 
-func NewNetwork(ctx *cli.Context, containerID string) *Network {
+func NewNetwork(ctx *cli.Context, hostname, containerID string) (*Network, error) {
 	networkNamespace := fmt.Sprintf("cni-%s", containerID)
 	cniArgs := [][2]string{
 		{"IgnoreUnknown", "1"},
-		{"K8S_POD_NAME", containerID},
+		{"K8S_POD_NAME", hostname},
+		{"K8S_POD_NAMESPACE", networkNamespace},
+		{"K8S_POD_INFRA_CONTAINER_ID", containerID},
 	}
+	capabilityArgs := make(map[string]interface{})
+
+	portMappings, err := createPortBindings(ctx.StringSlice("publish"))
+	if err != nil {
+		return nil, err
+	}
+	if len(portMappings) > 0 {
+		capabilityArgs["portMappings"] = portMappings
+	}
+
 	return &Network{
 		NetworkName: ctx.String("network"),
 		RuntimeConfig: &libcni.RuntimeConf{
-			ContainerID: containerID,
-			NetNS:       filepath.Join("/var/run/netns", networkNamespace),
-			IfName:      "eth0",
-			Args:        cniArgs,
+			ContainerID:    containerID,
+			NetNS:          filepath.Join("/var/run/netns", networkNamespace),
+			IfName:         "eth0",
+			Args:           cniArgs,
+			CapabilityArgs: capabilityArgs,
 		},
 		CNIConfigDir:     ctx.String("cni-config-dir"),
 		CNIPluginDir:     ctx.StringSlice("cni-plugin-dir"),
 		NetworkNamespace: networkNamespace,
-	}
+	}, nil
 }
 
 func Load(path string) (*Network, error) {
@@ -61,6 +74,7 @@ func Dump(path string, n *Network) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	if err := json.NewEncoder(f).Encode(n); err != nil {
 		return err
 	}
@@ -82,11 +96,13 @@ func (n *Network) Execute() error {
 		if err != nil {
 			return err
 		}
+		defer oldNS.Close()
 		// Create new network namespace
 		newNS, err := netns.NewNamed(n.NetworkNamespace)
 		if err != nil {
 			return err
 		}
+		defer newNS.Close()
 		// Back to old network namspace to load CNI plugin
 		if err := netns.Set(oldNS); err != nil {
 			return err
@@ -104,6 +120,7 @@ func (n *Network) Execute() error {
 		// New namespace is ready for Use
 		return netns.Set(newNS)
 	}
+
 }
 
 func (n *Network) Remove() error {
