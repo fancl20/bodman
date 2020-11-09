@@ -201,44 +201,59 @@ func (m *Manager) ImagePrune() (string, error) {
 	return m.repo.Prune(pruneOpt)
 }
 
-func (m *Manager) ContainerPrune() ([]string, error) {
+func (m *Manager) ContainerPrune() ([]string, []error, error) {
 	if m.err != nil {
-		return nil, m.err
+		return nil, nil, m.err
 	}
 	baseLock, err := tryLockFile(m.base, true)
 	if err != nil {
-		return nil, fmt.Errorf("Acquire base lock failed: %w", err)
+		return nil, nil, fmt.Errorf("Acquire base lock failed: %w", err)
 	}
 	defer baseLock.Close()
 
 	containerDir := getContainersPath(m.base)
 	containers, err := ioutil.ReadDir(containerDir)
 	if err != nil {
-		return nil, fmt.Errorf("List container directory failed: %w", err)
+		return nil, nil, fmt.Errorf("List container directory failed: %w", err)
 	}
 
 	var stopped []string
+	var errs []error
 	for _, c := range containers {
 		path := filepath.Join(containerDir, c.Name())
 		l, err := tryLockFile(path, false)
 		if err != nil {
-			return stopped, fmt.Errorf("Acquire container lock failed: %s: %w", path, err)
+			errs = append(errs, fmt.Errorf("Acquire container lock failed: %s: %w", path, err))
+			continue
 		}
 		if l == nil {
 			continue
 		}
 		l.Close()
-		n, err := network.Load(filepath.Join(path, "network.json"))
-		if err != nil {
-			return stopped, fmt.Errorf("Load container network config failed: %s: %w", path, err)
-		}
-		if err := n.Remove(); err != nil {
-			return stopped, fmt.Errorf("Remove container network failed: %s: %w", path, err)
+
+		failed := false
+		if err := removeNetework(path); err != nil {
+			failed = true
+			errs = append(errs, err)
 		}
 		if err := os.RemoveAll(path); err != nil {
-			return stopped, fmt.Errorf("Remove container dir failed: %s: %w", path, err)
+			failed = true
+			errs = append(errs, fmt.Errorf("Remove container dir failed: %s: %w", path, err))
 		}
-		stopped = append(stopped, path)
+		if !failed {
+			stopped = append(stopped, path)
+		}
 	}
-	return stopped, nil
+	return stopped, errs, nil
+}
+
+func removeNetework(path string) error {
+	n, err := network.Load(filepath.Join(path, "network.json"))
+	if err != nil {
+		return fmt.Errorf("Load container network config failed: %s: %w", path, err)
+	}
+	if err := n.Remove(); err != nil {
+		return fmt.Errorf("Remove container network failed: %s: %w", path, err)
+	}
+	return nil
 }

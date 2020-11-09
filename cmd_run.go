@@ -56,6 +56,9 @@ func newRunCommand() *cli.Command {
 				Name:    "publish",
 				Aliases: []string{"p"},
 			},
+			&cli.StringSliceFlag{
+				Name: "sysctl",
+			},
 			&cli.BoolFlag{
 				Name: "systemd-activation",
 			},
@@ -114,6 +117,10 @@ func newRunCommand() *cli.Command {
 			}
 			if err := prepareRootfs(rootfs, mounts); err != nil {
 				return fmt.Errorf("Move root failed: %w", err)
+			}
+
+			if err := addSysctls(ctx); err != nil {
+				return fmt.Errorf("Add sysctls failed: %w", err)
 			}
 
 			cwd := stringDefault(ctx.String("workdir"), cfg.WorkingDir, "/")
@@ -272,4 +279,73 @@ func buildDNSResolve(path string, dns, dnsSearch, dnsOptions []string) error {
 		}
 	}
 	return ioutil.WriteFile(path, content.Bytes(), 0644)
+}
+
+func validateSysctls(strSlice []string) (map[string]string, error) {
+	sysctl := make(map[string]string)
+	validSysctlMap := map[string]bool{
+		"kernel.msgmax":          true,
+		"kernel.msgmnb":          true,
+		"kernel.msgmni":          true,
+		"kernel.sem":             true,
+		"kernel.shmall":          true,
+		"kernel.shmmax":          true,
+		"kernel.shmmni":          true,
+		"kernel.shm_rmid_forced": true,
+	}
+	validSysctlPrefixes := []string{
+		"net.",
+		"fs.mqueue.",
+	}
+
+	for _, val := range strSlice {
+		foundMatch := false
+		arr := strings.Split(val, "=")
+		if len(arr) < 2 {
+			return nil, fmt.Errorf("%s is invalid, sysctl values must be in the form of KEY=VALUE", val)
+		}
+		if validSysctlMap[arr[0]] {
+			sysctl[arr[0]] = arr[1]
+			continue
+		}
+
+		for _, prefix := range validSysctlPrefixes {
+			if strings.HasPrefix(arr[0], prefix) {
+				sysctl[arr[0]] = arr[1]
+				foundMatch = true
+				break
+			}
+		}
+		if !foundMatch {
+			return nil, fmt.Errorf("sysctl '%s' is not allowed", arr[0])
+		}
+	}
+	return sysctl, nil
+}
+
+func addSysctls(ctx *cli.Context) error {
+	ctls, err := validateSysctls(ctx.StringSlice("sysctl"))
+	if err != nil {
+		return err
+	}
+	for sysctlKey, sysctlVal := range ctls {
+		// Ignore mqueue sysctls if --ipc=host
+		if ctx.String("ipc") == "host" && strings.HasPrefix(sysctlKey, "fs.mqueue.") {
+			return fmt.Errorf("Sysctl %s=%s ignored in containers.conf, since IPC Namespace set to host", sysctlKey, sysctlVal)
+		}
+		// Ignore net sysctls if --net=host
+		if ctx.String("network") == "host" && strings.HasPrefix(sysctlKey, "net.") {
+			return fmt.Errorf("Sysctl %s=%s ignored in containers.conf, since Network Namespace set to host", sysctlKey, sysctlVal)
+		}
+		// Ignore uts sysctls if --uts=host
+		if ctx.String("uts") == "host" && (strings.HasPrefix(sysctlKey, "kernel.domainname") || strings.HasPrefix(sysctlKey, "kernel.hostname")) {
+			return fmt.Errorf("Sysctl %s=%s ignored in containers.conf, since UTS Namespace set to host", sysctlKey, sysctlVal)
+		}
+
+		path := filepath.Join("/proc/sys/", strings.Replace(sysctlKey, ".", "/", -1))
+		if err := ioutil.WriteFile(path, []byte(sysctlVal), 0644); err != nil {
+			return err
+		}
+	}
+	return nil
 }
