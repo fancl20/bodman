@@ -102,12 +102,12 @@ func newRunCommand() *cli.Command {
 			if err := network.Dump(networkConfigPath, networkConfig); err != nil {
 				return fmt.Errorf("Dump network config failed: %w", err)
 			}
-			if err := networkConfig.Execute(); err != nil {
-				return fmt.Errorf("Execute network config failed: %w", err)
-			}
 
 			if err := unix.Unshare(unix.CLONE_NEWIPC | unix.CLONE_NEWNS | unix.CLONE_NEWUTS); err != nil {
 				return fmt.Errorf("Unshare namespaces failed: %w", err)
+			}
+			if err := networkConfig.Execute(); err != nil {
+				return fmt.Errorf("Execute network config failed: %w", err)
 			}
 
 			rootfs := filepath.Join(containerDir, "rootfs")

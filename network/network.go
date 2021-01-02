@@ -94,28 +94,28 @@ func (n *Network) Execute() error {
 		// Save current network namespace
 		oldNS, err := netns.Get()
 		if err != nil {
-			return err
+			return fmt.Errorf("Get old netns failed: %w", err)
 		}
 		defer oldNS.Close()
 		// Create new network namespace
 		newNS, err := netns.NewNamed(n.NetworkNamespace)
 		if err != nil {
-			return err
+			return fmt.Errorf("Create new netns failed: %w", err)
 		}
 		defer newNS.Close()
 		// Back to old network namspace to load CNI plugin
 		if err := netns.Set(oldNS); err != nil {
-			return err
+			return fmt.Errorf("Back to old netns failed: %w", err)
 		}
 		// Add CNI Network
 		netconf, err := libcni.LoadConfList(n.CNIConfigDir, n.NetworkName)
 		if err != nil {
-			return err
+			return fmt.Errorf("Load cni config failed: %w", err)
 		}
 
 		cninet := libcni.NewCNIConfig(n.CNIPluginDir, nil)
 		if _, err := cninet.AddNetworkList(context.TODO(), netconf, n.RuntimeConfig); err != nil {
-			return err
+			return fmt.Errorf("Add cni network failed: %w", err)
 		}
 		// New namespace is ready for Use
 		return netns.Set(newNS)
