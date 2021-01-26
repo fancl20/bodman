@@ -1,6 +1,6 @@
 # Bodman
 
-Boadman implements minimum feature set of docker and podman. The original intuition is runing container under systemd more similar to a normal binary.
+Bodman implements minimum feature set of docker and podman. The original intuition is runing container under systemd more similar to a normal binary.
 
 Inspired by [bocker](https://github.com/p8952/bocker/blob/master/bocker), [podman](https://podman.io) and [rkt](https://github.com/rkt/rkt).
 
